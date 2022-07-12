@@ -11,7 +11,7 @@ int inches3 = 0;
 int number_of_slots=1;
 bool car;
 bool secondCar;
-bool carExiting,carLeft;
+bool carEntering = false,carLeft,carLeaving;
 int cm = 0;
 int secondDistance = 0;
 char message[50];
@@ -40,9 +40,13 @@ void checkSlotStatus(){
 }
 
 void vehicleExiting(){
-  if(inches2 <80 &&carExiting == true){
+  if(inches2 <80 &&carEntering == true){
+    Serial.print("Car leaving now");
+    car = false;
     servo.write(90);
-  }else if(inches < 80 && carExiting == true){
+  }
+  else if((inches < 80 || inches2 > 80) && carEntering == true){
+    Serial.print("Car leaving");
     carLeft = true;
     servo.write(90);
   }else if(carLeft == true && inches > 80){
@@ -67,7 +71,7 @@ void loop(){
   inches = (cm / 2.54);
    secondDistance = 0.01723 * readUltrasonicDistance(8, 8);
   inches2 = (secondDistance / 2.54);
-  vehicleExiting();
+  //vehicleExiting();
 if(number_of_slots > 0){
   lcd_1.clear();
   sprintf(message,"%d slot", number_of_slots);
@@ -76,22 +80,32 @@ if(number_of_slots > 0){
   servo.write(90);
    car = true;
   }else if(inches2 > 80 && secondCar == true){
-   Serial.print("New position");
-   carExiting = true;
+   Serial.println("New position");
+   carEntering = true;
   servo.write(0);
-  }else if(inches2 > 80 && car == true){
+  }else if(inches2 > 80 && car == true && carEntering == false){
      Serial.println("Second car");
     servo.write(90);
-  }else if(inches2 < 80 && car == true){
+  }else if(inches2 < 80 && car == true && carEntering == false){
     Serial.println("We are here");
    secondCar = true;
-  }else{
-  servo.write(0);
+  }else if(inches2 < 80){
+  Serial.println("Car at the gate");
+  servo.write(90);
+  }else if(inches < 80){
+  servo.write(90);
   }
 }else{
+Serial.println("Else statement");
 lcd_1.clear();
 lcd_1.print("Parking full");
-servo.write(0);
+  if(inches2 < 80){
+  carLeaving = true;
+  Serial.println("Car at the gate");
+  servo.write(90);
+  }else if(inches < 80 && carLeaving){
+  servo.write(0);
+  }
 }
   checkSlotStatus();
   delay(10); 
