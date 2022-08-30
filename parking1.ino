@@ -8,7 +8,8 @@ Adafruit_LiquidCrystal lcd_1(0);
 int inches = 0;
 int inches2 = 0;
 int inches3 = 0;
-int number_of_slots=1;
+int inches4 = 0;
+int number_of_slots=2;
 bool car;
 bool secondCar;
 bool carEntering = false,carLeft,carLeaving;
@@ -32,10 +33,15 @@ long readUltrasonicDistance(int triggerPin, int echoPin)
 
 void checkSlotStatus(){
  int distance = (0.01723 * readUltrasonicDistance(12, 12))/2.54;
-  if(distance < 80 && number_of_slots > 0){
+ int distance2 = (0.01723 * readUltrasonicDistance(13, 13))/2.54; 
+  if((distance < 80 && number_of_slots > 0)){
   number_of_slots --;
-  }else if(distance > 80 && number_of_slots < 1){
+  }else if((distance > 80 && number_of_slots < 1)){
   number_of_slots ++;
+  }else if((distance2 < 80 && number_of_slots > 0)){
+   number_of_slots --;
+  }else if((distance2 > 80 && number_of_slots < 1)){
+   number_of_slots ++;
   }
 }
 
@@ -71,6 +77,7 @@ void loop(){
   inches = (cm / 2.54);
    secondDistance = 0.01723 * readUltrasonicDistance(8, 8);
   inches2 = (secondDistance / 2.54);
+    checkSlotStatus();
   //vehicleExiting();
 if(number_of_slots > 0){
   lcd_1.clear();
@@ -107,6 +114,6 @@ lcd_1.print("Parking full");
   servo.write(0);
   }
 }
-  checkSlotStatus();
-  delay(10); 
+
+  delay(5); 
 }
