@@ -1,6 +1,7 @@
 #include<Servo.h>
 #include <SPI.h>
 #include <Ethernet.h>
+#include <ArduinoJson.h>
 #include "NewPing.h"
 
 #define TRIGGER_PIN 3 // Trigger and Echo both on pin 9
@@ -66,10 +67,70 @@ void checkSlotStatus(){
   }
 }
 
-bool skipResponseHeaders(){
-  char endOfHeaders[] = "\r\n";  
+bool skipResponseHeaders() {
+  // HTTP headers end with an empty line
+  char endOfHeaders[] = "\r\n\r\n";
 
-  client.setTimeout()
+  client.setTimeout(HTTP_TIMEOUT);
+  bool ok = client.find(endOfHeaders);
+
+  if (!ok) {
+    Serial.println("No response or invalid response!");
+  }
+  return ok;
+}
+
+//bool readResponseContent(struct vehicleData* vehicleData) {
+//  // Compute optimal size of the JSON buffer according to what we need to parse.
+//  // See https://bblanchon.github.io/ArduinoJson/assistant/
+//  const size_t bufferSize = JSON_ARRAY_SIZE(1) + JSON_OBJECT_SIZE(1) + 
+//      2*JSON_OBJECT_SIZE(2) + JSON_OBJECT_SIZE(4) + JSON_OBJECT_SIZE(5) + 
+//      JSON_OBJECT_SIZE(6) + JSON_OBJECT_SIZE(12) + 390;
+//  DynamicJsonBuffer jsonBuffer(bufferSize);
+//
+//  JsonObject& root = jsonBuffer.parseObject(client);
+//  Serial.println(bufferSize);
+//  if (!root.success()) {
+//    Serial.println("JSON parsing failed!");
+//    return false;
+//  }
+//
+//  // Here were copy the strings we're interested in using to your struct data
+//  strcpy(vehicleData->error, root["main"]["error"]);
+//  // It's not mandatory to make a copy, you could just use the pointers
+//  // Since, they are pointing inside the "content" buffer, so you need to make
+//  // sure it's still in memory when you read the string
+//
+//  return true;
+//}
+
+bool sendRequest(const char* resource) {
+  Serial.print("GET ");
+  Serial.println(resource);
+if (client.connect(server,8000)) {
+  Serial.println("connected");
+  client.print("GET ");
+  client.print(resource);
+  client.println(" HTTP/1.1");
+  client.print("Host: ");
+  client.println(server);
+  client.println("Connection: close");
+  client.println();
+
+  return true;
+}
+}
+
+void printclientData(const struct vehicleData* vehicleData) {
+  Serial.print("Error = ");
+  Serial.println(vehicleData->error);
+//  Serial.print("Humidity = ");
+//  Serial.println(clientData->humidity);
+}
+
+void disconnect() {
+  Serial.println("Disconnect");
+  client.stop();
 }
 
 //Checking status of parking slots
@@ -89,7 +150,7 @@ void checkNewStatus(){
     setSlotStatus(9, "true");
   }else if(distance2 > 5){
    sensor2 = false;
-    setSlotStatus(9, "false");
+//    setSlotStatus(9, "false");
   }
   }
 
@@ -130,7 +191,7 @@ void setup() {
   Serial.begin(9600); 
    Serial.println("Configuring");
    //Configuring the mac with the Ethernet
-   
+   makeConnection();
    servo.attach(9);
    servo.write(180);  
 }
@@ -158,9 +219,9 @@ return distance; //We return the result. Here you can find a 0 if we timed out
 }
 
 void setSlotStatus(int id, char stat[]){
-  if(check1 == false){
-    makeConnection();
-    }
+//  if(check1 == false){
+//    makeConnection();
+//    }
 delay(100);
 if (client.connect(server,8000)) { //Connecting at the IP address and port we saved before
 Serial.println("connected");
@@ -184,25 +245,43 @@ client.stop(); //Closing the connection
 }else {
 // if you didn’t get a connection to the server:
 Serial.println("Error");
+  }
 }
- }
+
+bool checkHttpStatus(){
+    // Check HTTP status
+  char status[32] = {0};
+  client.readBytesUntil('\r', status, sizeof(status));
+  if (strcmp(status, "HTTP/1.1 200 OK") == 0)
+  {
+    Serial.print(F("Unexpected response: "));
+    Serial.println(status);
+    return true;
+  }else{
+//    HTTP/1.1 400 Bad Request
+   return false; 
+   }
+}
 
 void loop() {
+     
    inches = sonar.ping_cm();
    inches2 = sonar2.ping_cm();
    inches3 = sonar3.ping_cm();
    inches4 = sonar4.ping_cm();
    
   Serial.print("Distance = ");
-  Serial.println(inches4);
+  Serial.println(inches);
 //  Serial.println(getDistance(11,11));
   checkNewStatus();
  if(sensor2 == false){
    Serial.println("In the loop");
-  if(inches <= 5){
+  if(inches <= 5 && sendRequest("/vehicle/checkStatus")){
+      if(checkHttpStatus()) {
     Serial.println("Car near");
     servo.write(100);
     car = true;
+    }
    }else if(inches2 > 5 && secondCar == true){
    Serial.println("New position");
    carEntering = true;
